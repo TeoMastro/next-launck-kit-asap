@@ -1,28 +1,24 @@
 # Next Launch Kit
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app) and enhanced with PostgreSQL, Prisma, auth.js, and Docker support.
+A [Next.js 16](https://nextjs.org) full-stack starter kit with Supabase, Stripe, and internationalization.
 
 ## Tech Stack
 
-- **Framework**: [Next.js](https://nextjs.org/docs) with the App Router
-- **Authentication**: [NextAuth.js](https://next-auth.js.org) with credentials and Google provider
-- **Styling/UI**: [TailwindCSS](https://tailwindcss.com/docs) with [shadcn/ui](https://ui.shadcn.com/docs) components
-- **Database**: [PostgreSQL](https://www.postgresql.org/docs/)
-- **ORM**: [Prisma](https://www.prisma.io/docs)
+- **Framework**: [Next.js 16](https://nextjs.org/docs) with App Router & Turbopack
+- **Authentication**: [Supabase Auth](https://supabase.com/docs/guides/auth) (Email/Password + Google OAuth)
+- **Database**: [Supabase PostgreSQL](https://supabase.com/docs/guides/database) with Row Level Security
+- **Styling/UI**: [TailwindCSS 4](https://tailwindcss.com/docs) with [shadcn/ui](https://ui.shadcn.com/docs) components
+- **Payments**: [Stripe](https://stripe.com/docs) (subscriptions, checkout, portal)
 - **Validation**: [Zod](https://zod.dev)
-- **Logs**: [Winston](https://github.com/winstonjs/winston#documentation)
-- **Environment**: [Docker](https://docs.docker.com) & [Docker Compose](https://docs.docker.com/compose/)
-- **TypeScript**: [TypeScript](https://www.typescriptlang.org/docs/)
-- **Tests**: [Playwright](https://playwright.dev/docs/)
+- **Logging**: [Winston](https://github.com/winstonjs/winston#documentation)
+- **i18n**: [next-intl](https://next-intl.dev) (English/Greek)
+- **TypeScript**: [TypeScript 5.9](https://www.typescriptlang.org/docs/)
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
-
-- [Docker](https://docs.docker.com/get-docker/)
-- [Docker Compose](https://docs.docker.com/compose/install/)
-- v20.10.0 of [Node.js](https://nodejs.org/)
-- [nvm](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating) if you want to manage node versions by yourself (recommended)
+- [Node.js](https://nodejs.org/) v20+
+- A [Supabase](https://supabase.com) project (free tier works)
+- A [Stripe](https://stripe.com) account (for payments)
 
 ## Quick Start
 
@@ -33,75 +29,48 @@ Before you begin, ensure you have the following installed:
    cd next-launch-kit
    ```
 
-2. **Create environment file**
+2. **Install dependencies**
 
    ```bash
-   cp .env.example .env
+   npm install
    ```
 
-3. **Start the database with Docker**
+3. **Set up Supabase**
+
+   - Create a project at [supabase.com](https://supabase.com)
+   - Go to **Project Settings → API** and copy your keys
+   - Create `.env.local` from the example:
 
    ```bash
-   # Start PostgreSQL and the app
-   docker-compose up -d
+   cp .env.example .env.local
    ```
 
-4. **Install the project locally**
+   Fill in your credentials:
 
-   ```bash
-   npm i
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
    ```
 
-5. **Push the database schema and seed the database**
+4. **Run the database migration**
+
+   - Open **Supabase Dashboard → SQL Editor**
+   - Paste the contents of `supabase/migrations/001_initial.sql` and run it
+
+5. **Seed the database**
 
    ```bash
-   # Run database migrations
-   npx prisma db push
-
-   # Seed the database (optional)
    npm run db:seed
    ```
 
-6. **Make sure to [register your database](https://github.com/TeoMastro/next-launch-kit?tab=readme-ov-file#registering-the-postgresql-server) on pg admin before continuing to step 5**
-
-7. **To run in dev mode**
+6. **Start the dev server**
 
    ```bash
    npm run dev
    ```
 
-   Navigate to [http://localhost:3000/dashboard](http://localhost:3000/dashboard) and login with the admin user to see the application.
-
-## pgAdmin Server Registration
-
-After starting the containers with `docker-compose up -d`, pgAdmin won't automatically discover your PostgreSQL database. You need to manually register the server connection.
-
-### Accessing pgAdmin
-
-1. **Open pgAdmin** in your browser at [http://localhost:5051](http://localhost:5051)
-2. **Log in** with the credentials:
-   - Email: `admin@nextlaunchkit.com`
-   - Password: `nextlaunchkit123`
-
-### Registering the PostgreSQL Server
-
-Once logged into pgAdmin, follow these steps to connect to your PostgreSQL database:
-
-1. **Right-click on "Servers"** in the left sidebar
-2. **Select "Register" > "Server..."** from the context menu
-3. **Fill in the General tab:**
-   - **Name**: `Next Launch Kit DB` (or any name you prefer)
-   - **Server group**: Leave as "Servers"
-   - **Comments**: Optional description
-
-4. **Switch to the Connection tab** and enter:
-   - **Host name/address**: `postgres` (use the container name, not `localhost`)
-   - **Port**: `5432`
-   - **Maintenance database**: `next_launch_kit`
-   - **Username**: `postgres`
-   - **Password**: `password123`
-
-5. **Click "Save"** to register the server
+   Navigate to [http://localhost:3000](http://localhost:3000) and sign in with a demo account.
 
 ## Demo Accounts
 
@@ -117,62 +86,49 @@ After running the seed script, you can log in with these demo accounts:
   - Password: `demouser!1`
   - Role: USER
 
-## To use Google smtp
+## Google Sign In
 
-1. Make sure 2fa is enabled in your google account.
-2. Go to [app passords](https://myaccount.google.com/apppasswords) and generate an app password. Then use it in the SMTP_PASSWORD of your .env
+1. Go to **Supabase Dashboard → Authentication → Providers → Google**
+2. Enable the Google provider
+3. Follow the instructions to set up OAuth credentials in [Google Cloud Console](https://console.cloud.google.com/)
+4. Add the Supabase callback URL to your Google OAuth settings
 
-## To use Google sign in
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a project.
-3. Go to [Credentials](https://console.cloud.google.com/apis/credentials) and generate credentials.
-4. Make sure OAuth consent screen is enabled for your project.
-5. For more information check the [official documentation of auth.js for Google Provider](https://authjs.dev/getting-started/providers/google)
-
-## package.json scripts
+## Package Scripts
 
 ```bash
-# Generate Prisma client
-npm run db:generate
+# Development
+npm run dev              # Start dev server with Turbopack
+npm run build            # Build for production
+npm run start            # Start production server
+npm run lint             # Run ESLint
 
-# Create and apply a new migration
-npm run db:migrate
+# Database
+npm run db:seed          # Seed database with demo users
 
-# Push schema changes without creating migration files
-npm run db:push
-
-# Reset the database (⚠️ This will delete all data)
-npm run db:reset
-
-# Seed the database with sample data
-npm run db:seed
-
-# Open Prisma Studio (Database GUI)
-npm run db:studio
-
-# Deploy migrations to test database
-npm run migrate:test
-
-# Reset test database
-npm run migrate:test:reset
-
-# Create and apply migration to test database
-npm run migrate:test:dev
-
-# Push schema changes to test database
-npm run db:push:test
-
-# Format all files
-npm run format
-
-# Check formatting without making changes
-npm run format:check
+# Formatting
+npm run format           # Format all files with Prettier
+npm run format:check     # Check formatting without changes
 ```
 
-## Translations sorting
+## Environment Variables
 
-To alphabetically sort translations copy and paste the contents of your messages json file [here](https://novicelab.org/jsonabc/). Then paste it back in the project file.
+Required in `.env.local` (see `.env.example`):
+
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase public/anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-only) |
+| `NEXT_PUBLIC_APP_URL` | Your app URL (e.g. `http://localhost:3000`) |
+| `STRIPE_SECRET_KEY` | Stripe secret key |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key |
+| `NEXT_PUBLIC_STRIPE_MONTHLY_PRICE_ID` | Stripe monthly price ID |
+| `NEXT_PUBLIC_STRIPE_YEARLY_PRICE_ID` | Stripe yearly price ID |
+
+## Translations
+
+To alphabetically sort translations, copy and paste the contents of your messages JSON file [here](https://novicelab.org/jsonabc/). Then paste it back in the project file.
 
 ## License
 

@@ -1,64 +1,55 @@
-import { SubscriptionStatus, User } from '@prisma/client';
+import { SubscriptionStatus } from '@/lib/constants';
 
-export function hasActiveSubscription(user: User | null | undefined): boolean {
-  if (!user) return false;
+interface UserProfile {
+  subscription_status: string | null;
+  subscription_end_date: string | Date | null;
+  role: string;
+}
 
-  const activeStatuses: SubscriptionStatus[] = [
+export function hasActiveSubscription(user: UserProfile): boolean {
+  return user.subscription_status === SubscriptionStatus.active;
+}
+
+export function hasValidSubscription(user: UserProfile): boolean {
+  if (!user.subscription_status) return false;
+
+  const validStatuses: string[] = [
     SubscriptionStatus.active,
     SubscriptionStatus.trialing,
   ];
 
-  return (
-    user.subscription_status !== null &&
-    activeStatuses.includes(user.subscription_status)
-  );
+  return validStatuses.includes(user.subscription_status);
 }
 
-export function hasValidSubscription(
-  user: User | null | undefined,
-  currentTime?: Date
-): boolean {
-  if (!user) return false;
-
-  if (!hasActiveSubscription(user)) return false;
-
-  if (user.subscription_end_date) {
-    const now = currentTime || new Date();
-    return now < user.subscription_end_date;
-  }
-
-  return true;
+export function isPremiumUser(user: UserProfile): boolean {
+  return hasValidSubscription(user);
 }
 
-export function isPremiumUser(
-  user: User | null | undefined,
-  currentTime?: Date
-): boolean {
-  return hasValidSubscription(user, currentTime);
-}
-
-export function isFreeUser(
-  user: User | null | undefined,
-  currentTime?: Date
-): boolean {
-  return !hasValidSubscription(user, currentTime);
+export function isFreeUser(user: UserProfile): boolean {
+  return !hasValidSubscription(user);
 }
 
 export function getSubscriptionStatusLabel(
-  status: SubscriptionStatus | null | undefined
+  status: string | null
 ): string {
-  if (!status) return 'free';
+  if (!status) return 'Free';
 
-  const statusMap: Record<SubscriptionStatus, string> = {
-    [SubscriptionStatus.active]: 'subscriptionStatusActive',
-    [SubscriptionStatus.canceled]: 'subscriptionStatusCanceled',
-    [SubscriptionStatus.incomplete]: 'subscriptionStatusIncomplete',
-    [SubscriptionStatus.incomplete_expired]:
-      'subscriptionStatusIncompleteExpired',
-    [SubscriptionStatus.past_due]: 'subscriptionStatusPastDue',
-    [SubscriptionStatus.trialing]: 'subscriptionStatusTrialing',
-    [SubscriptionStatus.unpaid]: 'subscriptionStatusUnpaid',
-  };
-
-  return statusMap[status] || 'subscriptionStatusUnknown';
+  switch (status) {
+    case SubscriptionStatus.active:
+      return 'Active';
+    case SubscriptionStatus.canceled:
+      return 'Canceled';
+    case SubscriptionStatus.incomplete:
+      return 'Incomplete';
+    case SubscriptionStatus.incomplete_expired:
+      return 'Expired';
+    case SubscriptionStatus.past_due:
+      return 'Past Due';
+    case SubscriptionStatus.trialing:
+      return 'Trial';
+    case SubscriptionStatus.unpaid:
+      return 'Unpaid';
+    default:
+      return 'Unknown';
+  }
 }

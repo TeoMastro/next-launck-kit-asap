@@ -1,7 +1,7 @@
 import { getSession } from '@/lib/auth-session';
 import { getTranslations } from 'next-intl/server';
 import { redirect } from 'next/navigation';
-import { Status } from '@prisma/client';
+import { Status } from '@/lib/constants';
 
 export default async function ProfilePage() {
   const session = await getSession();
@@ -19,7 +19,7 @@ export default async function ProfilePage() {
             <strong>{t('id')}:</strong> {session?.user.id}
           </p>
           <p>
-            <strong>{t('name')}:</strong> {session?.user.name}
+            <strong>{t('name')}:</strong> {`${session?.user.first_name || ''} ${session?.user.last_name || ''}`.trim()}
           </p>
           <p>
             <strong>Email:</strong> {session?.user.email}

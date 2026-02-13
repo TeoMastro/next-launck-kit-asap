@@ -1,20 +1,8 @@
 import { ResetPasswordForm } from '@/components/auth/reset-password-form';
 import { getTranslations } from 'next-intl/server';
-import { redirect } from 'next/navigation';
 
-interface ResetPasswordPageProps {
-  searchParams: Promise<{ token?: string }>;
-}
-
-export default async function ResetPasswordPage({
-  searchParams,
-}: ResetPasswordPageProps) {
-  const params = await searchParams;
+export default async function ResetPasswordPage() {
   const t = await getTranslations('app');
-
-  if (!params.token) {
-    redirect('/auth/forgot-password');
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -27,7 +15,7 @@ export default async function ResetPasswordPage({
             {t('enterNewPassword')}
           </p>
         </div>
-        <ResetPasswordForm token={params.token} />
+        <ResetPasswordForm />
       </div>
     </div>
   );

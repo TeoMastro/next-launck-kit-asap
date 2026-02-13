@@ -1,63 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { updateSession } from '@/lib/supabase/middleware';
 
 export default async function middleware(req: NextRequest) {
-  const session = (await auth.api.getSession({
-    headers: req.headers,
-  })) as { user: { id: string; role: string; status: string }; session: { id: string } } | null;
+  const { supabase, user, supabaseResponse } = await updateSession(req);
 
-  // Check user status for authenticated users
-  if (session?.user?.id) {
-    const response = await fetch(
-      `${req.nextUrl.origin}/api/check-user-status`,
-      {
-        headers: {
-          Cookie: req.headers.get('Cookie') || '',
-        },
-      }
-    );
+  const pathname = req.nextUrl.pathname;
 
-    const { active } = await response.json();
-
-    if (!active) {
-      const response = NextResponse.redirect(
-        new URL('/auth/signin', req.url)
-      );
-      response.cookies.delete('better-auth.session_token');
-      response.cookies.delete('__Secure-better-auth.session_token');
-      return response;
-    }
+  // Skip auth pages — never block access to them
+  if (pathname.startsWith('/auth')) {
+    return supabaseResponse;
   }
 
-  if (
-    req.nextUrl.pathname.startsWith('/admin') &&
-    session?.user?.role !== 'ADMIN' &&
-    !!session?.user
-  ) {
-    return NextResponse.redirect(new URL('/404', req.url));
-  }
+  // Protect authenticated routes — redirect to signin if not logged in
+  const protectedPaths = ['/dashboard', '/profile', '/settings', '/admin'];
+  const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
 
-  if (
-    req.nextUrl.pathname.startsWith('/profile') ||
-    req.nextUrl.pathname.startsWith('/settings') ||
-    req.nextUrl.pathname.startsWith('/dashboard')
-  ) {
-    if (!session) {
-      return NextResponse.redirect(new URL('/auth/signin', req.url));
-    }
-  }
-
-  if (req.nextUrl.pathname.startsWith('/api')) {
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-  }
-
-  if (req.nextUrl.pathname.startsWith('/admin') && !session) {
+  if (isProtected && !user) {
     return NextResponse.redirect(new URL('/auth/signin', req.url));
   }
 
-  return NextResponse.next();
+  // For authenticated users, check profile
+  if (user && isProtected) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, status')
+      .eq('id', user.id)
+      .single();
+
+    // If profile not found or inactive, redirect to signin
+    if (!profile || profile.status !== 'ACTIVE') {
+      const redirectResponse = NextResponse.redirect(
+        new URL('/auth/signin', req.url)
+      );
+      supabaseResponse.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value);
+      });
+      return redirectResponse;
+    }
+
+    // Admin route protection
+    if (pathname.startsWith('/admin') && profile.role !== 'ADMIN') {
+      return NextResponse.redirect(new URL('/404', req.url));
+    }
+  }
+
+  // Protect API routes (except stripe webhook)
+  if (pathname.startsWith('/api') && !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  return supabaseResponse;
 }
 
 export const config = {
@@ -66,6 +58,7 @@ export const config = {
     '/profile/:path*',
     '/settings/:path*',
     '/admin/:path*',
-    '/api/((?!auth).)*',
+    '/auth/:path*',
+    '/api/((?!stripe/webhook).)*',
   ],
 };

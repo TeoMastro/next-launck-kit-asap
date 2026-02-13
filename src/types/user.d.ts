@@ -1,7 +1,7 @@
-import { Role, Status } from '@prisma/client';
+import { Role, Status } from '@/lib/constants';
 
 export type User = {
-  id: number;
+  id: string;
   first_name: string | null;
   last_name: string | null;
   email: string;
@@ -10,8 +10,6 @@ export type User = {
   createdAt: Date;
   updatedAt: Date;
   image?: string | null;
-  password_reset_token?: string | null;
-  password_reset_expires?: Date | null;
 };
 
 export type UserFormState = {
@@ -55,13 +53,7 @@ export type AdminUsersPageProps = {
 };
 
 export type UserFormProps = {
-  user?: Omit<
-    User,
-    | 'createdAt'
-    | 'updatedAt'
-    | 'password_reset_token'
-    | 'password_reset_expires'
-  > | null;
+  user?: Omit<User, 'createdAt' | 'updatedAt'> | null;
   mode: 'create' | 'update';
 };
 
@@ -75,7 +67,7 @@ export interface PageProps {
 
 export type UsersTableProps = {
   users: User[];
-  currentUserId: number;
+  currentUserId: string;
   // Pagination props
   totalCount: number;
   totalPages: number;

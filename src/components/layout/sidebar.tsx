@@ -23,7 +23,7 @@ export async function AppSidebar() {
   const t = await getTranslations('app');
 
   const userData = {
-    name: session?.user.name || 'User',
+    name: `${session?.user.first_name || ''} ${session?.user.last_name || ''}`.trim() || 'User',
     email: session?.user.email || 'user@example.com',
     avatar: '', // TODO: include the icon if
   };

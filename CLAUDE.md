@@ -1,17 +1,16 @@
 # Next Launch Kit - Project Guide
 
-This is a Next.js 15 full-stack application with authentication, user management, and internationalization.
+This is a Next.js 16 full-stack application with Supabase authentication, user management, Stripe subscriptions, and internationalization.
 
 ## Tech Stack
 
-- **Framework**: Next.js 15 with App Router, React 19, TypeScript
-- **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: NextAuth.js v5 (credentials + Google OAuth)
+- **Framework**: Next.js 16 with App Router, React 19, TypeScript
+- **Database**: Supabase PostgreSQL with Row Level Security (RLS)
+- **Authentication**: Supabase Auth (email/password + Google OAuth)
+- **Payments**: Stripe (subscriptions, checkout, customer portal)
 - **Styling**: Tailwind CSS 4, shadcn/ui components
 - **Validation**: Zod schemas
-- **Email**: Nodemailer (SMTP)
 - **Logging**: Winston
-- **Testing**: Playwright
 - **i18n**: next-intl (English/Greek)
 
 ## Key Commands
@@ -19,22 +18,18 @@ This is a Next.js 15 full-stack application with authentication, user management
 - `npm run dev` - Start development server with Turbopack
 - `npm run build` - Build for production
 - `npm run lint` - Run ESLint
-- `npm run db:generate` - Generate Prisma client
-- `npm run db:push` - Push schema to database
-- `npm run db:studio` - Open Prisma Studio
 - `npm run db:seed` - Seed database with demo users
-- `npx playwright test` - Run end-to-end tests
 
 ## Project Structure
 
 - `/src/app` - Next.js App Router pages and API routes
-- `/src/components` - React components (UI, forms, layouts)
+- `/src/components` - React components (UI, auth, admin, layout, subscription)
 - `/src/server-actions` - Server actions for data mutations
-- `/src/lib` - Utilities (auth, validation, logging, prisma)
+- `/src/lib` - Utilities (supabase clients, validation, logging, constants, stripe)
+- `/src/lib/supabase` - Supabase client helpers (client.ts, server.ts, admin.ts, middleware.ts)
 - `/src/types` - TypeScript type definitions
-- `/prisma` - Database schema and migrations
+- `/supabase` - SQL migrations and seed script
 - `/messages` - i18n translation files (en.json, el.json)
-- `/tests` - Playwright E2E tests
 
 ## Code Standards
 
@@ -44,17 +39,36 @@ This is a Next.js 15 full-stack application with authentication, user management
 - All forms use `useActionState` hook for form state management
 - Zod schemas in `/src/lib/validation-schemas.ts` for validation
 - Error messages as translation keys, translated via next-intl
-- Prisma for all database operations via `/src/lib/prisma.ts`
+- Supabase for all database operations via query builder
 - Logger for server-side logging via `/src/lib/logger.ts`
+
+## Supabase Clients
+
+Three Supabase client helpers for different contexts:
+
+- **Browser client** (`/src/lib/supabase/client.ts`) - Used in `'use client'` components
+- **Server client** (`/src/lib/supabase/server.ts`) - Used in Server Components and Server Actions (respects RLS)
+- **Admin client** (`/src/lib/supabase/admin.ts`) - Uses service role key, bypasses RLS (for admin operations)
 
 ## Authentication & Authorization
 
-- NextAuth.js configuration in `/src/lib/auth.ts`
-- Middleware in `/src/proxy.ts` protects routes
-- User roles: `USER`, `ADMIN` (Prisma enum)
-- User status: `ACTIVE`, `INACTIVE`, `UNVERIFIED` (Prisma enum)
+- Supabase Auth handles sign-up, sign-in, password reset, email verification
+- Proxy middleware in `/src/proxy.ts` protects routes and refreshes sessions
+- User roles: `USER`, `ADMIN` (stored in `profiles.role`)
+- User status: `ACTIVE`, `INACTIVE`, `UNVERIFIED` (stored in `profiles.status`)
 - Admin routes: `/admin/*` - only accessible to ADMIN role
 - Protected routes: `/dashboard`, `/profile`, `/settings` - require authentication
+- Auth callback route: `/auth/callback` handles OAuth and email verification redirects
+
+## Database
+
+- Supabase PostgreSQL with RLS enabled on `profiles` table
+- `profiles` table linked to `auth.users` via UUID foreign key
+- User IDs are UUID strings (not integers)
+- Admin queries use the admin client to bypass RLS
+- Regular queries use the server client (RLS enforced)
+- `is_admin()` SECURITY DEFINER function prevents RLS recursion
+- Use `revalidatePath()` after mutations that affect UI
 
 ## Form Patterns
 
@@ -65,9 +79,7 @@ All forms follow this pattern:
 type FormState = {
   success: boolean;
   errors: Record<string, string[]>;
-  formData: {
-    /* form fields */
-  };
+  formData: { /* form fields */ };
   globalError: string | null;
 };
 
@@ -77,13 +89,6 @@ const [state, formAction] = useActionState(serverAction, initialState);
 // Server action validates with Zod, returns FormState
 // Translation keys used for error messages
 ```
-
-## Database
-
-- Connection via Prisma Client (`/src/lib/prisma.ts`)
-- Main models: `User`, `Account`
-- Always use transactions for multi-step operations
-- Use `revalidatePath()` after mutations that affect UI
 
 ## Translation System
 
@@ -108,34 +113,31 @@ const [state, formAction] = useActionState(serverAction, initialState);
 - Use `redirect()` for successful mutations
 - Log important actions with Winston logger
 - Check admin authorization with `checkAdminAuth()` helper
+- Use Supabase server client for user-scoped queries
+- Use Supabase admin client for privileged operations
 
 ## Environment Variables
 
-Required in `.env` (see `.env.example`):
+Required in `.env.local` (see `.env.example`):
 
-- `DATABASE_URL` - PostgreSQL connection string
-- `AUTH_URL` - Application URL
-- `AUTH_SECRET` - NextAuth secret
-- `SMTP_*` - Email configuration
-- `AUTH_GOOGLE_*` - Google OAuth (optional)
-
-## Testing
-
-- Playwright tests in `/tests` directory
-- Test database: `next_launch_kit_test`
-- Setup in `tests/global-setup.ts` creates test users
-- Auth state stored in `playwright/.auth/*.json`
-- Run `npm run db:push:test` to sync test database schema
+- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase public/anon key
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (server-only)
+- `NEXT_PUBLIC_APP_URL` - Application URL
+- `STRIPE_SECRET_KEY` - Stripe secret key
+- `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret
+- `NEXT_PUBLIC_STRIPE_*` - Stripe publishable key and price IDs
 
 ## Important Notes
 
-- Never commit `.env` files or `playwright/.auth` directory
-- Password fields cleared after form submission errors
+- Never commit `.env.local` files
+- User IDs are UUID strings, not integers
 - Demo users: admin@nextlaunchkit.com / user@nextlaunchkit.com
-- Email verification required for new signups
-- Password reset tokens expire in 24 hours
+- Email verification handled by Supabase Auth (via `/auth/callback` route)
+- Password reset uses Supabase's built-in flow (no custom tokens)
 - User deletion prevented for own account (admin)
 - Prettier config: single quotes, 2 spaces, trailing commas
+- Constants for Role, Status, SubscriptionStatus in `/src/lib/constants.ts`
 
 ## File Creation
 
@@ -146,3 +148,4 @@ When creating new files:
 - Place types in `/src/types`
 - Follow existing naming conventions (kebab-case for files)
 - Add translation keys to both `/messages/en.json` and `/messages/el.json`
+- Use Supabase query builder (not raw SQL) for database operations

@@ -1,7 +1,6 @@
 'use server';
 
 import { getSession } from '@/lib/auth-session';
-import { prisma } from '@/lib/prisma';
 import {
   stripe,
   getPriceId,
@@ -10,7 +9,8 @@ import {
   getSimulationTime,
 } from '@/lib/stripe';
 import logger from '@/lib/logger';
-import { Role, Status } from '@prisma/client';
+import { Role, Status } from '@/lib/constants';
+import { createClient } from '@/lib/supabase/server';
 
 async function checkUserAuth() {
   const session = await getSession();
@@ -33,18 +33,15 @@ async function checkUserAuth() {
 export async function createCheckoutSession(planType: PlanType) {
   try {
     const session = await checkUserAuth();
+    const supabase = await createClient();
 
-    const user = await prisma.user.findUnique({
-      where: { id: Number(session.user.id) },
-      select: {
-        email: true,
-        stripe_customer_id: true,
-        first_name: true,
-        last_name: true,
-      },
-    });
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .select('email, stripe_customer_id, first_name, last_name')
+      .eq('id', session.user.id)
+      .single();
 
-    if (!user) {
+    if (error || !user) {
       throw new Error('User not found');
     }
 
@@ -61,7 +58,7 @@ export async function createCheckoutSession(planType: PlanType) {
         email: user.email,
         name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
         metadata: {
-          userId: session.user.id.toString(),
+          userId: session.user.id,
         },
       };
 
@@ -74,10 +71,10 @@ export async function createCheckoutSession(planType: PlanType) {
 
       customerId = customer.id;
 
-      await prisma.user.update({
-        where: { id: Number(session.user.id) },
-        data: { stripe_customer_id: customerId },
-      });
+      await supabase
+        .from('profiles')
+        .update({ stripe_customer_id: customerId })
+        .eq('id', session.user.id);
 
       logger.info('Stripe customer created', {
         userId: session.user.id,
@@ -95,18 +92,18 @@ export async function createCheckoutSession(planType: PlanType) {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.AUTH_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}&success=true`,
-      cancel_url: `${process.env.AUTH_URL}/dashboard?canceled=true`,
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}&success=true`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?canceled=true`,
       subscription_data: {
         description: `Subscription for user ${session.user.id}`,
         metadata: {
-          userId: session.user.id.toString(),
+          userId: session.user.id,
           planType,
         },
       },
       payment_method_collection: 'always',
       metadata: {
-        userId: session.user.id.toString(),
+        userId: session.user.id,
         planType,
       },
     };
@@ -139,19 +136,21 @@ export async function createCheckoutSession(planType: PlanType) {
 export async function createPortalSession() {
   try {
     const session = await checkUserAuth();
+    const supabase = await createClient();
 
-    const user = await prisma.user.findUnique({
-      where: { id: Number(session.user.id) },
-      select: { stripe_customer_id: true },
-    });
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .select('stripe_customer_id')
+      .eq('id', session.user.id)
+      .single();
 
-    if (!user || !user.stripe_customer_id) {
+    if (error || !user || !user.stripe_customer_id) {
       throw new Error('No Stripe customer found');
     }
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: user.stripe_customer_id,
-      return_url: `${process.env.AUTH_URL}/dashboard`,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
     });
 
     logger.info('Portal session created', {
@@ -177,15 +176,19 @@ export async function getUserSubscriptionAction() {
       return null;
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: Number(session.user.id) },
-      select: {
-        stripe_customer_id: true,
-        stripe_subscription_id: true,
-        subscription_status: true,
-        subscription_end_date: true,
-      },
-    });
+    const supabase = await createClient();
+
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .select(
+        'stripe_customer_id, stripe_subscription_id, subscription_status, subscription_end_date'
+      )
+      .eq('id', session.user.id)
+      .single();
+
+    if (error) {
+      return null;
+    }
 
     return user;
   } catch (error) {
@@ -224,16 +227,15 @@ export async function getSimulationTimeAction() {
 export async function syncSubscriptionAction() {
   try {
     const session = await checkUserAuth();
+    const supabase = await createClient();
 
-    const user = await prisma.user.findUnique({
-      where: { id: Number(session.user.id) },
-      select: {
-        stripe_subscription_id: true,
-        stripe_customer_id: true,
-      },
-    });
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .select('stripe_subscription_id, stripe_customer_id')
+      .eq('id', session.user.id)
+      .single();
 
-    if (!user || !user.stripe_subscription_id) {
+    if (error || !user || !user.stripe_subscription_id) {
       return {
         success: false,
         error: 'No active subscription found',
@@ -248,13 +250,13 @@ export async function syncSubscriptionAction() {
       (subscription as any).current_period_end * 1000
     );
 
-    await prisma.user.update({
-      where: { id: Number(session.user.id) },
-      data: {
-        subscription_status: subscription.status as any,
-        subscription_end_date: endDate,
-      },
-    });
+    await supabase
+      .from('profiles')
+      .update({
+        subscription_status: subscription.status,
+        subscription_end_date: endDate.toISOString(),
+      })
+      .eq('id', session.user.id);
 
     logger.info('Subscription synced manually', {
       userId: session.user.id,

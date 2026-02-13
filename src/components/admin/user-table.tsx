@@ -40,7 +40,7 @@ import {
   SortableTableHeader,
   SortField,
 } from '../layout/sortable-table-header';
-import { Role, Status } from '@prisma/client';
+import { Role, Status } from '@/lib/constants';
 import { UsersTableProps } from '@/types/user';
 import { InfoAlert } from '@/components/info-alert';
 
@@ -92,7 +92,7 @@ export function UsersTable({
   const [roleFilterLocal, setRoleFilterLocal] = useState(roleFilter);
   const [statusFilterLocal, setStatusFilterLocal] = useState(statusFilter);
   const [isPending, startTransition] = useTransition();
-  const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [alert, setAlert] = useState<{
     message: string;
     type: 'success' | 'error' | 'warning';
@@ -178,7 +178,7 @@ export function UsersTable({
   );
 
   // Handle user deletion
-  const handleDelete = async (userId: number) => {
+  const handleDelete = async (userId: string) => {
     if (userId === currentUserId) {
       setAlert({
         message: t('cannotDeleteOwnAccount'),

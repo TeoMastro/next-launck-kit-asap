@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { SubscriptionStatus } from '@prisma/client';
+import { SubscriptionStatus } from '@/lib/constants';
 import {
   getSubscriptionStatusLabel,
   hasValidSubscription,

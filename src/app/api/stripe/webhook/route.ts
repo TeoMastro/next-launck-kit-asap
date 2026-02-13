@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe, STRIPE_CONFIG } from '@/lib/stripe';
-import { prisma } from '@/lib/prisma';
 import logger from '@/lib/logger';
 import Stripe from 'stripe';
-import { SubscriptionStatus } from '@prisma/client';
+import { SubscriptionStatus } from '@/lib/constants';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -98,7 +98,6 @@ async function handleCheckoutSessionCompleted(
 
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
-  // Get current_period_end from the first subscription item
   const currentPeriodEnd = subscription.items.data[0]?.current_period_end;
 
   if (!currentPeriodEnd) {
@@ -112,15 +111,25 @@ async function handleCheckoutSessionCompleted(
 
   const endDate = new Date(currentPeriodEnd * 1000);
 
-  await prisma.user.update({
-    where: { id: parseInt(userId) },
-    data: {
+  const supabaseAdmin = createAdminClient();
+
+  const { error } = await supabaseAdmin
+    .from('profiles')
+    .update({
       stripe_customer_id: customerId,
       stripe_subscription_id: subscriptionId,
       subscription_status: subscription.status as SubscriptionStatus,
-      subscription_end_date: endDate,
-    },
-  });
+      subscription_end_date: endDate.toISOString(),
+    })
+    .eq('id', userId);
+
+  if (error) {
+    logger.error('Failed to update profile after checkout', {
+      userId,
+      error: error.message,
+    });
+    throw error;
+  }
 
   logger.info('Checkout session completed', {
     userId,
@@ -136,9 +145,13 @@ async function handleSubscriptionUpdated(
 ) {
   const customerId = subscriptionFromWebhook.customer as string;
 
-  const user = await prisma.user.findUnique({
-    where: { stripe_customer_id: customerId },
-  });
+  const supabaseAdmin = createAdminClient();
+
+  const { data: user } = await supabaseAdmin
+    .from('profiles')
+    .select('id')
+    .eq('stripe_customer_id', customerId)
+    .single();
 
   if (!user) {
     logger.error('User not found for subscription update', {
@@ -148,12 +161,10 @@ async function handleSubscriptionUpdated(
     return;
   }
 
-  // Retrieve fresh subscription data from Stripe to ensure we have all fields
   const subscription = await stripe.subscriptions.retrieve(
     subscriptionFromWebhook.id
   );
 
-  // Get current_period_end from the first subscription item
   const currentPeriodEnd = subscription.items.data[0]?.current_period_end;
 
   if (!currentPeriodEnd) {
@@ -167,14 +178,14 @@ async function handleSubscriptionUpdated(
 
   const endDate = new Date(currentPeriodEnd * 1000);
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
+  await supabaseAdmin
+    .from('profiles')
+    .update({
       stripe_subscription_id: subscription.id,
       subscription_status: subscription.status as SubscriptionStatus,
-      subscription_end_date: endDate,
-    },
-  });
+      subscription_end_date: endDate.toISOString(),
+    })
+    .eq('id', user.id);
 
   logger.info('Subscription updated', {
     userId: user.id,
@@ -189,9 +200,13 @@ async function handleSubscriptionDeleted(
 ) {
   const customerId = subscriptionFromWebhook.customer as string;
 
-  const user = await prisma.user.findUnique({
-    where: { stripe_customer_id: customerId },
-  });
+  const supabaseAdmin = createAdminClient();
+
+  const { data: user } = await supabaseAdmin
+    .from('profiles')
+    .select('id')
+    .eq('stripe_customer_id', customerId)
+    .single();
 
   if (!user) {
     logger.error('User not found for subscription deletion', {
@@ -201,12 +216,10 @@ async function handleSubscriptionDeleted(
     return;
   }
 
-  // Retrieve fresh subscription data from Stripe to ensure we have all fields
   const subscription = await stripe.subscriptions.retrieve(
     subscriptionFromWebhook.id
   );
 
-  // Get current_period_end from the first subscription item
   const currentPeriodEnd = subscription.items.data[0]?.current_period_end;
 
   if (!currentPeriodEnd) {
@@ -220,13 +233,13 @@ async function handleSubscriptionDeleted(
 
   const endDate = new Date(currentPeriodEnd * 1000);
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
+  await supabaseAdmin
+    .from('profiles')
+    .update({
       subscription_status: SubscriptionStatus.canceled,
-      subscription_end_date: endDate,
-    },
-  });
+      subscription_end_date: endDate.toISOString(),
+    })
+    .eq('id', user.id);
 
   logger.info('Subscription deleted', {
     userId: user.id,
@@ -243,9 +256,13 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
     return;
   }
 
-  const user = await prisma.user.findUnique({
-    where: { stripe_customer_id: customerId },
-  });
+  const supabaseAdmin = createAdminClient();
+
+  const { data: user } = await supabaseAdmin
+    .from('profiles')
+    .select('id')
+    .eq('stripe_customer_id', customerId)
+    .single();
 
   if (!user) {
     logger.error('User not found for invoice payment', {
@@ -257,7 +274,6 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
-  // Get current_period_end from the first subscription item
   const currentPeriodEnd = subscription.items.data[0]?.current_period_end;
 
   if (!currentPeriodEnd) {
@@ -271,13 +287,13 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 
   const endDate = new Date(currentPeriodEnd * 1000);
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
+  await supabaseAdmin
+    .from('profiles')
+    .update({
       subscription_status: SubscriptionStatus.active,
-      subscription_end_date: endDate,
-    },
-  });
+      subscription_end_date: endDate.toISOString(),
+    })
+    .eq('id', user.id);
 
   logger.info('Invoice payment succeeded', {
     userId: user.id,
@@ -290,9 +306,13 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   const customerId = invoice.customer as string;
 
-  const user = await prisma.user.findUnique({
-    where: { stripe_customer_id: customerId },
-  });
+  const supabaseAdmin = createAdminClient();
+
+  const { data: user } = await supabaseAdmin
+    .from('profiles')
+    .select('id')
+    .eq('stripe_customer_id', customerId)
+    .single();
 
   if (!user) {
     logger.error('User not found for failed payment', {
@@ -302,12 +322,12 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     return;
   }
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
+  await supabaseAdmin
+    .from('profiles')
+    .update({
       subscription_status: SubscriptionStatus.past_due,
-    },
-  });
+    })
+    .eq('id', user.id);
 
   logger.info('Invoice payment failed', {
     userId: user.id,

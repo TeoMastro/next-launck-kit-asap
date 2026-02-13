@@ -1,7 +1,5 @@
 'use server';
 
-import { prisma } from '@/lib/prisma';
-import { hashPassword } from 'better-auth/crypto';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth-session';
 import { revalidatePath } from 'next/cache';
@@ -17,8 +15,9 @@ import {
   formatZodErrors,
   updateUserSchema,
 } from '@/lib/validation-schemas';
-import { Role, Status } from '@prisma/client';
+import { Role, Status } from '@/lib/constants';
 import logger from '@/lib/logger';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 async function checkAdminAuth() {
   const session = await getSession();
@@ -59,45 +58,51 @@ export async function createUserAction(
 
     const trimmedEmail = parsed.data.email.trim().toLowerCase();
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email: trimmedEmail },
-    });
+    const supabaseAdmin = createAdminClient();
 
-    if (existingUser) {
-      return {
-        success: false,
-        errors: {},
-        formData: { ...parsed.data, password: '' },
-        globalError: 'userAlreadyExists',
-      };
+    // Create the auth user via admin API
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email: trimmedEmail,
+        password: parsed.data.password,
+        email_confirm: true,
+        user_metadata: {
+          first_name: parsed.data.first_name.trim(),
+          last_name: parsed.data.last_name.trim(),
+        },
+      });
+
+    if (authError) {
+      if (
+        authError.message.includes('already') ||
+        authError.message.includes('duplicate')
+      ) {
+        return {
+          success: false,
+          errors: {},
+          formData: { ...parsed.data, password: '' },
+          globalError: 'userAlreadyExists',
+        };
+      }
+      throw authError;
     }
 
-    const hashedPassword = await hashPassword(parsed.data.password);
-
-    const newUser = await prisma.user.create({
-      data: {
-        name: `${parsed.data.first_name.trim()} ${parsed.data.last_name.trim()}`,
-        first_name: parsed.data.first_name.trim(),
-        last_name: parsed.data.last_name.trim(),
-        email: trimmedEmail,
-        emailVerified: true,
+    // Update profile with role and status (trigger already created the profile)
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .update({
         role: parsed.data.role,
         status: parsed.data.status,
-      },
-    });
+      })
+      .eq('id', authData.user.id);
 
-    await prisma.account.create({
-      data: {
-        userId: newUser.id,
-        providerId: 'credential',
-        accountId: newUser.id.toString(),
-        password: hashedPassword,
-      },
-    });
+    if (profileError) {
+      throw profileError;
+    }
 
     logger.info('User created successfully', {
       adminId: session.user.id,
-      createdUserId: newUser.id,
+      createdUserId: authData.user.id,
     });
 
     revalidatePath('/admin/users');
@@ -126,7 +131,7 @@ export async function createUserAction(
 }
 
 export async function updateUserAction(
-  userId: number,
+  userId: string,
   prevState: UserFormState,
   formData: FormData
 ): Promise<UserFormState> {
@@ -155,9 +160,14 @@ export async function updateUserAction(
 
     const trimmedEmail = parsed.data.email.trim().toLowerCase();
 
-    const existingUser = await prisma.user.findUnique({
-      where: { id: userId },
-    });
+    const supabaseAdmin = createAdminClient();
+
+    // Check user exists
+    const { data: existingUser } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single();
 
     if (!existingUser) {
       return {
@@ -168,12 +178,13 @@ export async function updateUserAction(
       };
     }
 
-    const emailTaken = await prisma.user.findFirst({
-      where: {
-        email: trimmedEmail,
-        id: { not: userId },
-      },
-    });
+    // Check email uniqueness
+    const { data: emailTaken } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('email', trimmedEmail)
+      .neq('id', userId)
+      .single();
 
     if (emailTaken) {
       return {
@@ -184,24 +195,31 @@ export async function updateUserAction(
       };
     }
 
-    const updateData = {
-      first_name: parsed.data.first_name.trim(),
-      last_name: parsed.data.last_name.trim(),
-      email: trimmedEmail,
-      role: parsed.data.role,
-      status: parsed.data.status,
-    };
+    // Update profile
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        first_name: parsed.data.first_name.trim(),
+        last_name: parsed.data.last_name.trim(),
+        email: trimmedEmail,
+        role: parsed.data.role,
+        status: parsed.data.status,
+      })
+      .eq('id', userId);
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: updateData,
+    if (profileError) {
+      throw profileError;
+    }
+
+    // Update auth user email if changed
+    await supabaseAdmin.auth.admin.updateUserById(userId, {
+      email: trimmedEmail,
     });
 
+    // Update password if provided
     if (parsed.data.password && parsed.data.password.trim() !== '') {
-      const hashedPassword = await hashPassword(parsed.data.password);
-      await prisma.account.updateMany({
-        where: { userId, providerId: 'credential' },
-        data: { password: hashedPassword },
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: parsed.data.password,
       });
     }
 
@@ -235,25 +253,33 @@ export async function updateUserAction(
   redirect('/admin/user?message=userUpdatedSuccess');
 }
 
-export async function deleteUserAction(userId: number) {
+export async function deleteUserAction(userId: string) {
   try {
     const session = await checkAdminAuth();
 
-    if (+session.user.id === userId) {
+    if (session.user.id === userId) {
       throw new Error('Cannot delete own account');
     }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { id: userId },
-    });
+    const supabaseAdmin = createAdminClient();
+
+    // Check user exists
+    const { data: existingUser } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single();
 
     if (!existingUser) {
       throw new Error('User not found');
     }
 
-    await prisma.user.delete({
-      where: { id: userId },
-    });
+    // Delete auth user (cascade will delete profile)
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
+
+    if (error) {
+      throw error;
+    }
 
     logger.info('User deleted successfully', {
       adminId: session.user.id,
@@ -274,33 +300,34 @@ export async function deleteUserAction(userId: number) {
   }
 }
 
-export async function getUserById(userId: number) {
+export async function getUserById(userId: string) {
   try {
     await checkAdminAuth();
 
-    if (isNaN(userId)) {
+    const supabaseAdmin = createAdminClient();
+
+    const { data: user, error } = await supabaseAdmin
+      .from('profiles')
+      .select(
+        'id, first_name, last_name, email, role, status, created_at, updated_at'
+      )
+      .eq('id', userId)
+      .single();
+
+    if (error || !user) {
       return false;
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        first_name: true,
-        last_name: true,
-        email: true,
-        role: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    if (!user) {
-      return false;
-    }
-
-    return user;
+    return {
+      id: user.id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      email: user.email,
+      role: user.role as Role,
+      status: user.status as Status,
+      createdAt: new Date(user.created_at),
+      updatedAt: new Date(user.updated_at),
+    };
   } catch (error) {
     logger.error('Error fetching user by ID', {
       error: (error as Error).message,
@@ -317,87 +344,95 @@ async function fetchUsers(params: GetUsersParams & { paginate?: boolean }) {
   const search = params.search || '';
   const roleFilter = params.roleFilter || 'all';
   const statusFilter = params.statusFilter || 'all';
-  const sortField = params.sortField || 'createdAt';
+  const sortField = params.sortField || 'created_at';
   const sortDirection = (params.sortDirection as 'asc' | 'desc') || 'desc';
   const paginate = params.paginate ?? false;
 
   const offset = (page - 1) * limit;
 
-  const whereClause: {
-      OR?: Array<{
-        first_name?: { contains: string; mode: 'insensitive' };
-        last_name?: { contains: string; mode: 'insensitive' };
-        email?: { contains: string; mode: 'insensitive' };
-      }>;
-      role?: Role;
-      status?: Status;
-    } = {};
+  const supabaseAdmin = createAdminClient();
 
-  if (search) {
-    whereClause.OR = [
-      { first_name: { contains: search, mode: 'insensitive' } },
-      { last_name: { contains: search, mode: 'insensitive' } },
-      { email: { contains: search, mode: 'insensitive' } },
-    ];
-  }
+  // Map sort field names
+  const dbSortField =
+    sortField === 'createdAt'
+      ? 'created_at'
+      : sortField === 'updatedAt'
+        ? 'updated_at'
+        : sortField === 'name'
+          ? 'first_name'
+          : sortField;
 
-  if (roleFilter !== 'all') {
-    whereClause.role = roleFilter as 'USER' | 'ADMIN';
-  }
-
-  if (statusFilter !== 'all') {
-    whereClause.status = statusFilter as 'ACTIVE' | 'INACTIVE' | 'UNVERIFIED';
-  }
-
-  const orderBy: Record<string, 'asc' | 'desc'> = {};
-
-  if (sortField === 'name') {
-    orderBy.first_name = sortDirection;
-  } else {
-    orderBy[sortField] = sortDirection;
-  }
-
-  if (paginate) {
-    const [users, totalCount] = await Promise.all([
-      prisma.user.findMany({
-        where: whereClause,
-        select: {
-          id: true,
-          first_name: true,
-          last_name: true,
-          email: true,
-          role: true,
-          status: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-        orderBy,
-        skip: offset,
-        take: limit,
-      }),
-      prisma.user.count({ where: whereClause }),
-    ]);
-
-    const totalPages = Math.ceil(totalCount / limit);
-
-    return { users, totalCount, totalPages, currentPage: page, limit };
-  } else {
-    const users = await prisma.user.findMany({
-      where: whereClause,
-      select: {
-        id: true,
-        first_name: true,
-        last_name: true,
-        email: true,
-        role: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      orderBy,
+  // Build the query
+  let query = supabaseAdmin
+    .from('profiles')
+    .select('id, first_name, last_name, email, role, status, created_at, updated_at', {
+      count: 'exact',
     });
 
-    return { users };
+  // Apply search filter
+  if (search) {
+    query = query.or(
+      `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`
+    );
+  }
+
+  // Apply role filter
+  if (roleFilter !== 'all') {
+    query = query.eq('role', roleFilter);
+  }
+
+  // Apply status filter
+  if (statusFilter !== 'all') {
+    query = query.eq('status', statusFilter);
+  }
+
+  // Apply sorting
+  query = query.order(dbSortField, { ascending: sortDirection === 'asc' });
+
+  if (paginate) {
+    // Apply pagination
+    query = query.range(offset, offset + limit - 1);
+
+    const { data: users, count, error } = await query;
+
+    if (error) {
+      throw error;
+    }
+
+    const totalCount = count || 0;
+    const totalPages = Math.ceil(totalCount / limit);
+
+    const mappedUsers = (users || []).map((u) => ({
+      id: u.id,
+      first_name: u.first_name,
+      last_name: u.last_name,
+      email: u.email,
+      role: u.role as Role,
+      status: u.status as Status,
+      createdAt: new Date(u.created_at),
+      updatedAt: new Date(u.updated_at),
+    }));
+
+    return { users: mappedUsers, totalCount, totalPages, currentPage: page, limit };
+  } else {
+    const { data: users, error } = await query;
+
+    if (error) {
+      throw error;
+    }
+
+    const mappedUsers = (users || []).map((u) => ({
+      id: u.id,
+      first_name: u.first_name,
+      last_name: u.last_name,
+      email: u.email,
+      role: u.role as Role,
+      status: u.status as Status,
+      createdAt: new Date(u.created_at),
+      updatedAt: new Date(u.updated_at),
+    }));
+
+    return { users: mappedUsers };
   }
 }
 

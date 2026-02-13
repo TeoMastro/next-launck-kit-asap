@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Role, Status } from '@prisma/client';
+import { Role, Status } from '@/lib/constants';
 
 export const signinSchema = z.object({
   email: z.email('invalidEmail'),

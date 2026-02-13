@@ -1,7 +1,7 @@
 import { getSession } from '@/lib/auth-session';
 import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
-import { Role, Status } from '@prisma/client';
+import { Role, Status } from '@/lib/constants';
 import { getUserSubscriptionAction } from '@/server-actions/subscription';
 import { SubscriptionCard } from '@/components/subscription/subscription-card';
 import { PricingPlans } from '@/components/subscription/pricing-plans';
@@ -20,15 +20,14 @@ export default async function DashboardPage() {
   const isUserRole = session.user.role === Role.USER;
   const simulationTime = await getSimulationTime();
   const hasActiveSub = hasValidSubscription(
-    subscription as any,
-    simulationTime
+    subscription as any
   );
 
   return (
     <div className="container mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold">
-          {t('welcomeBackName', { name: session.user.name || '' })}
+          {t('welcomeBackName', { name: `${session.user.first_name || ''} ${session.user.last_name || ''}`.trim() || session.user.email })}
         </h1>
       </div>
 

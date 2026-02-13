@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserFormProps, UserFormState } from '@/types/user';
-import { Role, Status } from '@prisma/client';
+import { Role, Status } from '@/lib/constants';
 import { InfoAlert } from '../info-alert';
 
 export function UserForm({ user, mode }: UserFormProps) {

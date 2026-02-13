@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { authClient } from '@/lib/auth-client';
+import { createClient } from '@/lib/supabase/client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -31,6 +31,7 @@ export function SigninForm({ error, message }: LoginFormProps) {
   const [showMessage, setShowMessage] = useState(!!message);
   const router = useRouter();
   const t = useTranslations('app');
+  const supabase = createClient();
 
   const initialState: ValidationState = {
     errors: {},
@@ -47,13 +48,13 @@ export function SigninForm({ error, message }: LoginFormProps) {
       setShowMessage(false);
 
       try {
-        const result = await authClient.signIn.email({
+        const { error } = await supabase.auth.signInWithPassword({
           email: data.email,
           password: data.password,
         });
 
-        if (result.error) {
-          if (result.error.status === 403) {
+        if (error) {
+          if (error.message.includes('Email not confirmed')) {
             setAuthError(t('emailNotVerified'));
           } else {
             setAuthError(t('invalidCredentials'));
@@ -68,15 +69,18 @@ export function SigninForm({ error, message }: LoginFormProps) {
         setIsSigningIn(false);
       }
     },
-    [t, router]
+    [t, router, supabase]
   );
 
   const handleGoogleSignIn = () => {
-    authClient.signIn.social({
+    supabase.auth.signInWithOAuth({
       provider: 'google',
-      callbackURL: '/dashboard',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+      },
     });
   };
+
   useEffect(() => {
     if (state.success && state.data) {
       handleAuthentication(state.data);

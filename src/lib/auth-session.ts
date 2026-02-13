@@ -1,36 +1,49 @@
-import { headers } from 'next/headers';
-import { auth } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
 
 export interface AuthSession {
-  session: {
-    id: string;
-    userId: number;
-    token: string;
-    expiresAt: Date;
-  };
   user: {
-    id: number;
-    name: string | null;
+    id: string;
     email: string;
-    image: string | null;
     role: string;
     status: string;
     first_name: string | null;
     last_name: string | null;
-    emailVerified: boolean;
     createdAt: Date;
     updatedAt: Date;
   };
 }
 
 export async function getSession(): Promise<AuthSession | null> {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const supabase = await createClient();
 
-  if (!session) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
     return null;
   }
 
-  return session as unknown as AuthSession;
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile) {
+    return null;
+  }
+
+  return {
+    user: {
+      id: profile.id,
+      email: profile.email,
+      role: profile.role,
+      status: profile.status,
+      first_name: profile.first_name,
+      last_name: profile.last_name,
+      createdAt: new Date(profile.created_at),
+      updatedAt: new Date(profile.updated_at),
+    },
+  };
 }

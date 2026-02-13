@@ -21,7 +21,7 @@ export default async function AdminUsersPage({
     <div className="container mx-auto py-6">
       <UsersTable
         users={users}
-        currentUserId={+session.user.id}
+        currentUserId={session.user.id}
         // Pagination props
         totalCount={totalCount}
         totalPages={totalPages}

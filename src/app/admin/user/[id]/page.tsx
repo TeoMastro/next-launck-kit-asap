@@ -12,9 +12,9 @@ export default async function ViewUserPage({ params }: PageProps) {
   }
 
   const resolvedParams = await params;
-  const userId = parseInt(resolvedParams.id);
+  const userId = resolvedParams.id;
 
-  if (isNaN(userId)) {
+  if (!userId) {
     notFound();
   }
 

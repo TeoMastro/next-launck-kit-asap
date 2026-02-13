@@ -5,9 +5,9 @@ import { getUserById } from '@/server-actions/user';
 
 export default async function UpdateUserPage({ params }: PageProps) {
   const resolvedParams = await params;
-  const userId = parseInt(resolvedParams.id);
+  const userId = resolvedParams.id;
 
-  if (isNaN(userId)) {
+  if (!userId) {
     notFound();
   }
 

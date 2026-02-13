@@ -1,7 +1,7 @@
 import LanguageSwitcher from '@/components/language-switcher';
 import { getSession } from '@/lib/auth-session';
 import { redirect } from 'next/navigation';
-import { Status } from '@prisma/client';
+import { Status } from '@/lib/constants';
 import { getTranslations } from 'next-intl/server';
 
 export default async function SettingsPage() {

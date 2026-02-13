@@ -12,35 +12,56 @@ import {
 } from '@/components/ui/card';
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { useActionState } from 'react';
-import { resetPasswordAction } from '@/server-actions/auth';
-import { ResetPasswordState } from '@/types/auth';
+import { createClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
 import { InfoAlert } from '../info-alert';
+import { resetPasswordSchema, formatZodErrors } from '@/lib/validation-schemas';
 
-interface ResetPasswordFormProps {
-  token: string;
-}
-
-export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
+export function ResetPasswordForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const t = useTranslations('app');
-
-  const initialState: ResetPasswordState = {
-    errors: {},
-    success: false,
-    formData: { password: '', confirmPassword: '' },
-    globalError: null,
-  };
-
-  const [state, formAction] = useActionState(
-    resetPasswordAction.bind(null, token),
-    initialState
-  );
+  const supabase = createClient();
+  const router = useRouter();
 
   const handleSubmit = async (formData: FormData) => {
     setIsSubmitting(true);
-    formAction(formData);
-    setIsSubmitting(false);
+    setGlobalError(null);
+    setFieldErrors({});
+
+    const data = {
+      password: formData.get('password')?.toString() ?? '',
+      confirmPassword: formData.get('confirmPassword')?.toString() ?? '',
+    };
+
+    const parsed = resetPasswordSchema.safeParse(data);
+
+    if (!parsed.success) {
+      setFieldErrors(formatZodErrors(parsed.error));
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: parsed.data.password,
+      });
+
+      if (error) {
+        setGlobalError(t('somethingWentWrong'));
+        setIsSubmitting(false);
+        return;
+      }
+
+      router.push(
+        '/auth/signin?message=' +
+          encodeURIComponent(t('passwordResetSuccess'))
+      );
+    } catch {
+      setGlobalError(t('somethingWentWrong'));
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -51,8 +72,8 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
 
       <form action={handleSubmit} noValidate>
         <CardContent className="space-y-4 mb-5">
-          {state.globalError && (
-            <InfoAlert message={t(state.globalError)} type="error" />
+          {globalError && (
+            <InfoAlert message={globalError} type="error" />
           )}
 
           <div className="space-y-2">
@@ -63,12 +84,11 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
               type="password"
               placeholder={t('enterNewPassword')}
               disabled={isSubmitting}
-              defaultValue={state.formData?.password || ''}
-              className={state.errors.password ? 'border-red-500' : ''}
+              className={fieldErrors.password ? 'border-red-500' : ''}
             />
-            {state.errors.password && (
+            {fieldErrors.password && (
               <p className="text-sm text-red-500">
-                {t(state.errors.password[0])}
+                {t(fieldErrors.password[0])}
               </p>
             )}
           </div>
@@ -81,12 +101,11 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
               type="password"
               placeholder={t('confirmNewPassword')}
               disabled={isSubmitting}
-              defaultValue={state.formData?.confirmPassword || ''}
-              className={state.errors.confirmPassword ? 'border-red-500' : ''}
+              className={fieldErrors.confirmPassword ? 'border-red-500' : ''}
             />
-            {state.errors.confirmPassword && (
+            {fieldErrors.confirmPassword && (
               <p className="text-sm text-red-500">
-                {t(state.errors.confirmPassword[0])}
+                {t(fieldErrors.confirmPassword[0])}
               </p>
             )}
           </div>
