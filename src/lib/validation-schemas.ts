@@ -31,7 +31,15 @@ export const createUserSchema = z.object({
   first_name: z.string().min(1, 'firstNameRequired'),
   last_name: z.string().min(1, 'lastNameRequired'),
   email: z.email('invalidEmail'),
-  password: z.string().min(6, 'passwordMinLength'),
+  password: z
+    .string()
+    .min(8, 'passwordTooShort')
+    .regex(/[a-z]/, 'passwordNeedsLowercase')
+    .regex(/\d/, 'passwordNeedsNumber')
+    .regex(
+      /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/,
+      'passwordNeedsSpecialChar'
+    ),
   role: z.enum([Role.ADMIN, Role.USER]),
   status: z.enum([Status.ACTIVE, Status.INACTIVE, Status.UNVERIFIED]),
 });
@@ -45,10 +53,28 @@ export const updateUserSchema = z.object({
     .optional()
     .refine((val) => {
       if (val && val.length > 0) {
-        return val.length >= 6;
+        return val.length >= 8;
       }
       return true;
-    }, 'passwordMinLength'),
+    }, 'passwordTooShort')
+    .refine((val) => {
+      if (val && val.length > 0) {
+        return /[a-z]/.test(val);
+      }
+      return true;
+    }, 'passwordNeedsLowercase')
+    .refine((val) => {
+      if (val && val.length > 0) {
+        return /\d/.test(val);
+      }
+      return true;
+    }, 'passwordNeedsNumber')
+    .refine((val) => {
+      if (val && val.length > 0) {
+        return /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(val);
+      }
+      return true;
+    }, 'passwordNeedsSpecialChar'),
   role: z.enum([Role.ADMIN, Role.USER]),
   status: z.enum([Status.ACTIVE, Status.INACTIVE, Status.UNVERIFIED]),
 });
@@ -59,7 +85,15 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z
   .object({
-    password: z.string().min(8, 'passwordMinLength'),
+    password: z
+      .string()
+      .min(8, 'passwordTooShort')
+      .regex(/[a-z]/, 'passwordNeedsLowercase')
+      .regex(/\d/, 'passwordNeedsNumber')
+      .regex(
+        /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/,
+        'passwordNeedsSpecialChar'
+      ),
     confirmPassword: z.string().min(1, 'confirmPasswordRequired'),
   })
   .refine((data) => data.password === data.confirmPassword, {

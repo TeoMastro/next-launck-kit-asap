@@ -11,6 +11,7 @@ import {
 import logger from '@/lib/logger';
 import { Role, Status } from '@/lib/constants';
 import { createClient } from '@/lib/supabase/server';
+import Stripe from 'stripe';
 
 async function checkUserAuth() {
   const session = await getSession();
@@ -54,18 +55,16 @@ export async function createCheckoutSession(planType: PlanType) {
     let customerId = user.stripe_customer_id;
 
     if (!customerId) {
-      const customerData: any = {
+      const customerData: Stripe.CustomerCreateParams = {
         email: user.email,
         name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
         metadata: {
           userId: session.user.id,
         },
+        ...(STRIPE_CONFIG.testClockId && {
+          test_clock: STRIPE_CONFIG.testClockId,
+        }),
       };
-
-      // Use test clock if configured (for testing subscription cycles)
-      if (STRIPE_CONFIG.testClockId) {
-        customerData.test_clock = STRIPE_CONFIG.testClockId;
-      }
 
       const customer = await stripe.customers.create(customerData);
 
@@ -82,7 +81,7 @@ export async function createCheckoutSession(planType: PlanType) {
       });
     }
 
-    const checkoutSessionData: any = {
+    const checkoutSessionData: Stripe.Checkout.SessionCreateParams = {
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -99,6 +98,9 @@ export async function createCheckoutSession(planType: PlanType) {
         metadata: {
           userId: session.user.id,
           planType,
+          ...(STRIPE_CONFIG.testClockId && {
+            test_clock: STRIPE_CONFIG.testClockId,
+          }),
         },
       },
       payment_method_collection: 'always',
@@ -107,12 +109,6 @@ export async function createCheckoutSession(planType: PlanType) {
         planType,
       },
     };
-
-    // Add test clock to subscription if configured
-    if (STRIPE_CONFIG.testClockId) {
-      checkoutSessionData.subscription_data.metadata.test_clock =
-        STRIPE_CONFIG.testClockId;
-    }
 
     const checkoutSession =
       await stripe.checkout.sessions.create(checkoutSessionData);
@@ -246,9 +242,15 @@ export async function syncSubscriptionAction() {
       user.stripe_subscription_id
     );
 
-    const endDate = new Date(
-      (subscription as any).current_period_end * 1000
-    );
+    const currentPeriodEnd =
+      subscription.items.data[0]?.current_period_end;
+    if (!currentPeriodEnd) {
+      return {
+        success: false,
+        error: 'Missing current_period_end in subscription',
+      };
+    }
+    const endDate = new Date(currentPeriodEnd * 1000);
 
     await supabase
       .from('profiles')

@@ -22,7 +22,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 async function checkAdminAuth() {
   const session = await getSession();
 
-  if (!session || session.user.role !== 'ADMIN') {
+  if (!session || session.user.role !== Role.ADMIN) {
     throw new Error('Unauthorized');
   }
 
@@ -369,10 +369,11 @@ async function fetchUsers(params: GetUsersParams & { paginate?: boolean }) {
       count: 'exact',
     });
 
-  // Apply search filter
+  // Apply search filter (sanitize to prevent PostgREST filter injection)
   if (search) {
+    const sanitizedSearch = search.replace(/[,.()]/g, '');
     query = query.or(
-      `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`
+      `first_name.ilike.%${sanitizedSearch}%,last_name.ilike.%${sanitizedSearch}%,email.ilike.%${sanitizedSearch}%`
     );
   }
 
@@ -445,6 +446,7 @@ export async function getUsersWithPagination(
 export async function getAllUsersForExport(
   params: Omit<GetUsersParams, 'page' | 'limit'>
 ): Promise<User[]> {
+  await checkAdminAuth();
   const result = await fetchUsers({ ...params, paginate: false });
   return (result as GetUsersResultWithoutPagination).users;
 }

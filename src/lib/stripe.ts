@@ -1,7 +1,14 @@
 import Stripe from 'stripe';
+import logger from '@/lib/logger';
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('STRIPE_SECRET_KEY is not defined in environment variables');
+}
+
+if (!process.env.STRIPE_WEBHOOK_SECRET) {
+  throw new Error(
+    'STRIPE_WEBHOOK_SECRET is not defined in environment variables'
+  );
 }
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
@@ -10,10 +17,10 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 });
 
 export const STRIPE_CONFIG = {
-  publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
+  publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '',
   priceIdMonthly: process.env.STRIPE_PRICE_ID_MONTHLY || '',
   priceIdYearly: process.env.STRIPE_PRICE_ID_YEARLY || '',
-  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
   testClockId: process.env.STRIPE_TEST_CLOCK_ID || '',
 };
 
@@ -40,7 +47,7 @@ export async function getSimulationTime(): Promise<Date> {
     );
     return new Date(testClock.frozen_time * 1000);
   } catch (error) {
-    console.error('Error fetching test clock:', error);
+    logger.error('Error fetching test clock', { error });
     return new Date();
   }
 }

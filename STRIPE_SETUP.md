@@ -136,7 +136,7 @@ Complete `.env` setup:
 ```env
 # Stripe Keys (from Dashboard → Developers → API keys)
 STRIPE_SECRET_KEY=sk_test_xxxxxxxxxxxxx
-STRIPE_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxx
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxx
 
 # Webhook Secret (from stripe listen or Dashboard)
 STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxx

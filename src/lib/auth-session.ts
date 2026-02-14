@@ -26,7 +26,7 @@ export async function getSession(): Promise<AuthSession | null> {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('*')
+    .select('id, email, role, status, first_name, last_name, created_at, updated_at')
     .eq('id', user.id)
     .single();
 

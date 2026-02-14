@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
+import { Role } from '@/lib/constants';
 
 export default async function middleware(req: NextRequest) {
   const { supabase, user, supabaseResponse } = await updateSession(req);
@@ -39,14 +40,27 @@ export default async function middleware(req: NextRequest) {
     }
 
     // Admin route protection
-    if (pathname.startsWith('/admin') && profile.role !== 'ADMIN') {
-      return NextResponse.redirect(new URL('/404', req.url));
+    if (pathname.startsWith('/admin') && profile.role !== Role.ADMIN) {
+      return NextResponse.redirect(new URL('/auth/signin', req.url));
     }
   }
 
   // Protect API routes (except stripe webhook)
   if (pathname.startsWith('/api') && !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Protect admin API routes (defense in depth)
+  if (pathname.startsWith('/api/users') && user) {
+    const { data: apiProfile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (!apiProfile || apiProfile.role !== Role.ADMIN) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
   }
 
   return supabaseResponse;
