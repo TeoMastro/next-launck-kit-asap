@@ -158,6 +158,11 @@
     "year": "έτος",
     "yearlyPlan": "Ετήσιο Πλάνο",
     "yearlyPlanDescription": "Η καλύτερη αξία για μακροχρόνιους χρήστες",
-    "yearlyPrice": "€99.99"
+    "yearlyPrice": "€99.99",
+    "checkYourEmail": "Ελέγξτε το email σας",
+    "saving": "Αποθήκευση...",
+    "subscriptionSyncedSuccess": "Η συνδρομή συγχρονίστηκε επιτυχώς",
+    "syncSubscription": "Συγχρονισμός συνδρομής από το Stripe",
+    "verificationEmailSent": "Στείλαμε έναν σύνδεσμο επαλήθευσης στο email σας. Ελέγξτε τα εισερχόμενά σας και κάντε κλικ στον σύνδεσμο για να επαληθεύσετε τον λογαριασμό σας."
   }
 }

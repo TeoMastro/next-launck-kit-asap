@@ -1,16 +1,19 @@
 import { SubscriptionStatus } from '@/lib/constants';
 
-interface UserProfile {
+interface SubscriptionData {
   subscription_status: string | null;
   subscription_end_date: string | Date | null;
+}
+
+interface UserProfile extends SubscriptionData {
   role: string;
 }
 
-export function hasActiveSubscription(user: UserProfile): boolean {
+export function hasActiveSubscription(user: SubscriptionData): boolean {
   return user.subscription_status === SubscriptionStatus.active;
 }
 
-export function hasValidSubscription(user: UserProfile): boolean {
+export function hasValidSubscription(user: SubscriptionData): boolean {
   if (!user.subscription_status) return false;
 
   const validStatuses: string[] = [
@@ -32,24 +35,25 @@ export function isFreeUser(user: UserProfile): boolean {
 export function getSubscriptionStatusLabel(
   status: string | null
 ): string {
-  if (!status) return 'Free';
+  if (!status) return 'free';
 
   switch (status) {
     case SubscriptionStatus.active:
-      return 'Active';
+      return 'subscriptionStatusActive';
     case SubscriptionStatus.canceled:
-      return 'Canceled';
+      return 'subscriptionStatusCanceled';
     case SubscriptionStatus.incomplete:
-      return 'Incomplete';
+      return 'subscriptionStatusIncomplete';
     case SubscriptionStatus.incomplete_expired:
-      return 'Expired';
+      return 'subscriptionStatusIncompleteExpired';
     case SubscriptionStatus.past_due:
-      return 'Past Due';
+      return 'subscriptionStatusPastDue';
     case SubscriptionStatus.trialing:
-      return 'Trial';
+      return 'subscriptionStatusTrialing';
     case SubscriptionStatus.unpaid:
-      return 'Unpaid';
+      return 'subscriptionStatusUnpaid';
     default:
-      return 'Unknown';
+      return 'subscriptionStatusUnknown';
   }
 }
+

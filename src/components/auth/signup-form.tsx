@@ -16,9 +16,11 @@ import {
 } from '@/components/ui/card';
 import { SignupFormState } from '@/types/auth';
 import { InfoAlert } from '../info-alert';
+import Link from 'next/link';
 
 export function SignupForm() {
   const t = useTranslations('app');
+  const tSignIn = useTranslations('SignIn');
 
   const initialState: SignupFormState = {
     success: false,
@@ -70,7 +72,6 @@ export function SignupForm() {
                 placeholder="John"
                 defaultValue={state.formData.first_name}
                 className={state.errors.first_name ? 'border-red-500' : ''}
-                required
               />
               {state.errors.first_name && (
                 <p className="text-sm text-red-500">
@@ -87,7 +88,6 @@ export function SignupForm() {
                 placeholder="Doe"
                 defaultValue={state.formData.last_name}
                 className={state.errors.last_name ? 'border-red-500' : ''}
-                required
               />
               {state.errors.last_name && (
                 <p className="text-sm text-red-500">
@@ -106,7 +106,6 @@ export function SignupForm() {
               placeholder="john@example.com"
               defaultValue={state.formData.email}
               className={state.errors.email ? 'border-red-500' : ''}
-              required
             />
             {state.errors.email && (
               <p className="text-sm text-red-500">{getErrorMessage('email')}</p>
@@ -121,7 +120,6 @@ export function SignupForm() {
               type="password"
               placeholder={t('passwordPlaceholder')}
               className={state.errors.password ? 'border-red-500' : ''}
-              required
             />
             {state.errors.password && (
               <p className="text-sm text-red-500">
@@ -138,7 +136,6 @@ export function SignupForm() {
               type="password"
               placeholder={t('confirmPasswordPlaceholder')}
               className={state.errors.confirmPassword ? 'border-red-500' : ''}
-              required
             />
             {state.errors.confirmPassword && (
               <p className="text-sm text-red-500">
@@ -155,12 +152,12 @@ export function SignupForm() {
 
           <p className="text-center text-sm text-muted-foreground">
             {t('alreadyHaveAccount')}{' '}
-            <a
+            <Link
               href="/auth/signin"
               className="font-medium text-primary hover:underline"
             >
-              {useTranslations('SignIn')('signIn')}
-            </a>
+              {tSignIn('signIn')}
+            </Link>
           </p>
         </CardFooter>
       </form>

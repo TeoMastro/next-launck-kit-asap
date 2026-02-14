@@ -46,7 +46,7 @@ export function UserForm({ user, mode }: UserFormProps) {
     }
   };
 
-  const [state, formAction] = useActionState(actionWrapper, initialState);
+  const [state, formAction, isPending] = useActionState(actionWrapper, initialState);
 
   const getErrorMessage = (field: string) => {
     const errs = state.errors[field];
@@ -183,8 +183,12 @@ export function UserForm({ user, mode }: UserFormProps) {
           </div>
 
           <div className="flex gap-4">
-            <Button type="submit">
-              {mode === 'create' ? t('create') : t('update')}
+            <Button type="submit" disabled={isPending}>
+              {isPending
+                ? t('saving')
+                : mode === 'create'
+                  ? t('create')
+                  : t('update')}
             </Button>
             <Button
               type="button"

@@ -37,7 +37,7 @@ export function SigninForm({ error, message }: LoginFormProps) {
     errors: {},
     data: null,
     success: false,
-    formData: { email: 'admin@nextlaunchkit.com', password: 'demoadmin!1' },
+    formData: { email: '', password: '' },
   };
 
   const [state, formAction] = useActionState(validateSigninData, initialState);

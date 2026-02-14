@@ -148,10 +148,14 @@ export function UsersTable({
     });
   }, 300);
 
-  // Handle search input changes
+  // Auto-clear success message from URL
   useEffect(() => {
-    debouncedSearch(searchTermLocal);
-  }, [searchTermLocal, debouncedSearch]);
+    if (message) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('message');
+      router.replace(url.pathname + url.search, { scroll: false });
+    }
+  }, [message, router]);
 
   // Handle role filter changes
   const handleRoleFilterChange = useCallback(
@@ -314,7 +318,10 @@ export function UsersTable({
         <Input
           placeholder={t('searchUsers')}
           value={searchTermLocal}
-          onChange={(e) => setSearchTermLocal(e.target.value)}
+          onChange={(e) => {
+            setSearchTermLocal(e.target.value);
+            debouncedSearch(e.target.value);
+          }}
           className="w-full md:max-w-sm"
         />
         <Select value={roleFilterLocal} onValueChange={handleRoleFilterChange}>

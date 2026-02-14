@@ -158,6 +158,11 @@
     "year": "year",
     "yearlyPlan": "Yearly Plan",
     "yearlyPlanDescription": "Best value for long-term users",
-    "yearlyPrice": "$99.99"
+    "yearlyPrice": "$99.99",
+    "checkYourEmail": "Check your email",
+    "saving": "Saving...",
+    "subscriptionSyncedSuccess": "Subscription synced successfully",
+    "syncSubscription": "Sync subscription from Stripe",
+    "verificationEmailSent": "We've sent a verification link to your email. Please check your inbox and click the link to verify your account."
   }
 }

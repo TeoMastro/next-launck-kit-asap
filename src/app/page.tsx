@@ -351,7 +351,7 @@ export default function MarketingPage() {
                     <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-black text-white mx-auto">
                       <Zap className="h-6 w-6" />
                     </div>
-                    <CardTitle>Next.js 15</CardTitle>
+                    <CardTitle>Next.js 16</CardTitle>
                     <CardDescription>
                       A React framework with the App Router
                     </CardDescription>
@@ -384,19 +384,19 @@ export default function MarketingPage() {
                   </CardContent>
                 </Card>
 
-                {/* Prisma Card */}
+                {/* Supabase Card */}
                 <Card className="w-full max-w-sm transition-shadow hover:shadow-lg">
                   <CardHeader className="text-center">
                     <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-gray-800 text-white mx-auto">
                       <Layers className="h-6 w-6" />
                     </div>
-                    <CardTitle>Prisma ORM</CardTitle>
-                    <CardDescription>Type-safe database client</CardDescription>
+                    <CardTitle>Supabase</CardTitle>
+                    <CardDescription>Backend-as-a-Service platform</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground text-center">
-                      Modern database toolkit with type safety, migrations, and
-                      an intuitive data model for rapid development.
+                      Complete backend platform with PostgreSQL database, real-time subscriptions,
+                      storage, and Row Level Security for secure data access.
                     </p>
                   </CardContent>
                 </Card>
@@ -418,21 +418,21 @@ export default function MarketingPage() {
                   </CardContent>
                 </Card>
 
-                {/* NextAuth Card */}
+                {/* Supabase Auth Card */}
                 <Card className="w-full max-w-sm transition-shadow hover:shadow-lg">
                   <CardHeader className="text-center">
                     <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-green-600 text-white mx-auto">
                       <Shield className="h-6 w-6" />
                     </div>
-                    <CardTitle>Auth.js</CardTitle>
+                    <CardTitle>Supabase Auth</CardTitle>
                     <CardDescription>
                       Complete authentication solution
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground text-center">
-                      Secure authentication with support for OAuth providers,
-                      email/password, and custom authentication flows.
+                      Secure authentication with email/password, OAuth providers,
+                      and built-in user management with Row Level Security.
                     </p>
                   </CardContent>
                 </Card>

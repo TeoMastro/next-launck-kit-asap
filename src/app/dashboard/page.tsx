@@ -6,7 +6,6 @@ import { getUserSubscriptionAction } from '@/server-actions/subscription';
 import { SubscriptionCard } from '@/components/subscription/subscription-card';
 import { PricingPlans } from '@/components/subscription/pricing-plans';
 import { hasValidSubscription } from '@/lib/subscription-helpers';
-import { getSimulationTime } from '@/lib/stripe';
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -18,10 +17,9 @@ export default async function DashboardPage() {
   const t = await getTranslations('app');
   const subscription = await getUserSubscriptionAction();
   const isUserRole = session.user.role === Role.USER;
-  const simulationTime = await getSimulationTime();
-  const hasActiveSub = hasValidSubscription(
-    subscription as any
-  );
+  const hasActiveSub = subscription
+    ? hasValidSubscription(subscription)
+    : false;
 
   return (
     <div className="container mx-auto space-y-6">

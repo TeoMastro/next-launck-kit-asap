@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -118,12 +119,12 @@ export function ResetPasswordForm() {
 
           <p className="text-center text-sm text-muted-foreground">
             {t('rememberPassword')}{' '}
-            <a
+            <Link
               href="/auth/signin"
               className="font-medium text-primary hover:underline"
             >
               {t('signIn')}
-            </a>
+            </Link>
           </p>
         </CardFooter>
       </form>

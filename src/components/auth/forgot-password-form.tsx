@@ -10,15 +10,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useActionState } from 'react';
 import { forgotPasswordAction } from '@/server-actions/auth';
 import { ForgotPasswordState } from '@/types/auth';
 import { InfoAlert } from '../info-alert';
+import Link from 'next/link';
 
 export function ForgotPasswordForm() {
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const t = useTranslations('app');
 
   const initialState: ForgotPasswordState = {
@@ -28,16 +27,10 @@ export function ForgotPasswordForm() {
     globalError: null,
   };
 
-  const [state, formAction] = useActionState(
+  const [state, formAction, isPending] = useActionState(
     forgotPasswordAction,
     initialState
   );
-
-  const handleSubmit = async (formData: FormData) => {
-    setIsSubmitting(true);
-    formAction(formData);
-    setIsSubmitting(false);
-  };
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -45,7 +38,7 @@ export function ForgotPasswordForm() {
         <CardTitle>{t('resetPassword')}</CardTitle>
       </CardHeader>
 
-      <form action={handleSubmit} noValidate>
+      <form action={formAction} noValidate>
         <CardContent className="space-y-4 mb-5">
           {state.globalError && (
             <InfoAlert message={t(state.globalError)} type="error" />
@@ -62,12 +55,16 @@ export function ForgotPasswordForm() {
               name="email"
               type="email"
               placeholder={t('enterEmail')}
-              disabled={isSubmitting}
+              disabled={isPending}
               defaultValue={state.formData?.email || ''}
               className={state.errors.email ? 'border-red-500' : ''}
+              aria-invalid={!!state.errors.email}
+              aria-describedby={state.errors.email ? 'email-error' : undefined}
             />
             {state.errors.email && (
-              <p className="text-sm text-red-500">{t(state.errors.email[0])}</p>
+              <p id="email-error" className="text-sm text-red-500" role="alert">
+                {t(state.errors.email[0])}
+              </p>
             )}
           </div>
         </CardContent>
@@ -76,22 +73,23 @@ export function ForgotPasswordForm() {
           <Button
             type="submit"
             className="w-full"
-            disabled={isSubmitting || state.success}
+            disabled={isPending || state.success}
           >
-            {isSubmitting ? t('sending') : t('sendResetLink')}
+            {isPending ? t('sending') : t('sendResetLink')}
           </Button>
 
           <p className="text-center text-sm text-muted-foreground">
             {t('rememberPassword')}{' '}
-            <a
+            <Link
               href="/auth/signin"
               className="font-medium text-primary hover:underline"
             >
               {t('signIn')}
-            </a>
+            </Link>
           </p>
         </CardFooter>
       </form>
     </Card>
   );
 }
+

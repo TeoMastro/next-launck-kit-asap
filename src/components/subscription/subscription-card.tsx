@@ -39,7 +39,7 @@ export function SubscriptionCard({ subscription }: SubscriptionCardProps) {
 
   const hasSub =
     subscription &&
-    hasValidSubscription(subscription as any) &&
+    hasValidSubscription(subscription) &&
     subscription.stripe_customer_id;
 
   const handleManageSubscription = async () => {
@@ -82,7 +82,7 @@ export function SubscriptionCard({ subscription }: SubscriptionCardProps) {
         throw new Error(result.error || 'Failed to sync subscription');
       }
 
-      setSuccess('Subscription synced successfully');
+      setSuccess(t('subscriptionSyncedSuccess'));
       setTimeout(() => {
         router.refresh();
       }, 500);
@@ -155,7 +155,7 @@ export function SubscriptionCard({ subscription }: SubscriptionCardProps) {
               disabled={loading || syncing}
               variant="outline"
               size="icon"
-              title="Sync subscription from Stripe"
+              title={t('syncSubscription')}
             >
               <RefreshCw className={syncing ? 'animate-spin h-4 w-4' : 'h-4 w-4'} />
             </Button>

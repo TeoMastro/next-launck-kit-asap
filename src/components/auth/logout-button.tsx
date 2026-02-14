@@ -15,5 +15,12 @@ export default function LogoutButton() {
     router.refresh();
   };
 
-  return <a onClick={handleLogout}>{t('signOut')}</a>;
+  return (
+    <button
+      onClick={handleLogout}
+      className="w-full text-left cursor-pointer"
+    >
+      {t('signOut')}
+    </button>
+  );
 }
